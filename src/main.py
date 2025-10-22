@@ -3,6 +3,8 @@ from machine import Pin, PWM
 
 from typing import Literal
 
+from uart import UART
+
 # Wait for 3 seconds to check if a button is pressed
 # - pressed: transmitter mode
 # - not pressed: receiver mode
@@ -54,9 +56,11 @@ def get_duty_cycle() -> int:
 def transmitter(pwm_pin_out: int):
     # get user duty cycle
     duty_cycle = get_duty_cycle()
+    sequence = False
     try:
         # uart interface is still up for debate
-        uart.send(f"duty_cycle:{duty_cycle}")
+        uart.send(f"duty_cycle:{duty_cycle}", sequence=sequence)
+        uart.read()
     except TimeoutError:
         print("Failed to transmit; timed out.")
 
@@ -70,6 +74,7 @@ def receiver():
 
 def main():
     mode = startup_get_mode(22, 3_000)
+    uart = UART(pin_tx=8, pin_rx=9, baud_rate=9600, max_retries=3, timeout_ms=1000)
 
     print(f"entering {mode} mode")
     if mode == "receiving":

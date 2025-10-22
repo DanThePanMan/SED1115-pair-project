@@ -1,5 +1,6 @@
 from .frame import _frame_escape, _frame_escape_escape, _frame_header, _frame_header_escape, _frame_tail, _frame_tail_escape, _create_general_frame
 from .frame import *
+from collections import deque
 
 class Packet():
     """
@@ -110,14 +111,14 @@ class FrameReader():
     _bytes_buffer: bytearray
 
     # store packets
-    _packets_buffer: "list[Packet]"
+    _packets_buffer: "deque[Packet]"
 
     # whether or not we're reading a specific frame currently
     _reading_frame: bool
 
     def __init__(self):
         self._bytes_buffer = bytearray()
-        self._packets_buffer = []
+        self._packets_buffer = deque()
         self._reading_frame = False
     
     def read(self, bytes: bytes):
@@ -138,13 +139,17 @@ class FrameReader():
                     self._process_packet()
                 pos += 1
 
-    def get_queued_packets(self):
+    def has_queued_packet(self):
+        return len(self._packets_buffer) > 0
+
+    def get_next_packet(self):
         """
-        Return a list of all the currently queued packets.
+        Get the next packet from the packet buffer and remove it.
         """
-        current_packets = self._packets_buffer
-        self._packets_buffer = [] 
-        return current_packets
+        return self._packets_buffer.popleft()
+    
+    def clear_packets(self):
+        self._packets_buffer.clear()
 
     def _process_packet(self):
         """
