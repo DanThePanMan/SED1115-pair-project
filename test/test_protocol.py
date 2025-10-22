@@ -72,12 +72,18 @@ class TestEscapeFunctions(unittest.TestCase):
         self.assertEqual(nackPacket, decodedNackPacket)
         self.assertEqual(dataPacket, decodedDataPacket)
 
-
     def test_packet_create(self):
-        packet = Packet("data", False, b"Hello, world!")
+        # xB0 = 0b1100
+        packet = Packet('data', False, b"Hello, world!")
 
-        data = b"Hello, world!"
-        escaped = escape_content(data)
-        packet_bytes = bytes([_frame_header, *escaped, _frame_tail])
+        packet_bytes = _create_general_frame(bytes([
+            0b1000_0000, *b"Hello, world!"
+        ]))
 
         self.assertEqual(bytes(packet), packet_bytes)
+
+    def test_packet_corrupted(self):
+        packet = Packet("data", True, b"Hello, world!").encode()
+
+        packet_bytes = bytes([packet[0] ^ 0b1011_0100, *packet[1:]])
+        self.assertRaises(ValueError, lambda: Packet.parse(packet_bytes))

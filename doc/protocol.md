@@ -13,7 +13,7 @@ ack = Packet("ack", True)
 data = Packet("data", True, b"Hello, world!")
 ```
 
-To convert a packet to bytes for writing, call `bytes()` or use `Packet.encode`
+To convert a packet to bytes for writing to the connection, call `bytes()` or use `Packet.encode`
 
 ```py
 print(ack.encode()) # b'G dH'

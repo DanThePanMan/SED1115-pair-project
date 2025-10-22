@@ -27,7 +27,7 @@ class Packet():
             and self.sequence_bit == other.sequence_bit and self.body == other.body
 
     @staticmethod
-    def parse(frame: bytes) -> 'Packet | None':
+    def parse(frame: bytes) -> 'Packet':
         """
         Takes a frame and attempts to parse it into a packet.
 
@@ -36,12 +36,14 @@ class Packet():
         
         Returns:
             A Packet if it can be successfully parsed, otherwise None.
+        
+        Raises:
+            ValueError: An invalid packet is provided.
         """
 
         # 1 byte for header + 1 byte for (type + sequence) + 1 byte for checksum + 1 byte for tail
         if len(frame) < 4 or frame[0] != _frame_header or frame[-1] != _frame_tail:
-            print("Packet too short")
-            return None
+            raise ValueError("Packet is malformed")
 
         # Find the unescaped content and its checksum
         unescaped = unescape_content(frame[1:-1])
@@ -50,8 +52,7 @@ class Packet():
         expected_checksum = calculate_checksum(unescaped[:-1])
 
         if unescaped[-1] != expected_checksum:
-            print("Unexpected checksum")
-            return None
+            raise ValueError("Invalid checksum")
         
         # Decode the type
         type_bits = (unescaped[0] & 0b1100_0000) >> 6
