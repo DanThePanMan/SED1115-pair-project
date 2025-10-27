@@ -1,1 +1,1 @@
-from .util import FrameReader, Packet
+from protocol.packet import PacketType, Packet
