@@ -7,6 +7,8 @@ from typing import Callable
 # specific for pico
 from machine import UART, Pin
 
+
+
 class UARTMessageHandler(MessageHandler):
     def __init__(self, uart_id: int = 0, baudrate: int = 9600, tx_pin: int = 0, rx_pin: int = 1):
         """args:
@@ -22,21 +24,36 @@ class UARTMessageHandler(MessageHandler):
         
         log_debug("uart", f"UART{uart_id} initialized: TX=GP{tx_pin}, RX=GP{rx_pin}, baud={baudrate}")
         self.buffer = bytearray()
-        self.callback = None
+   
         
         
     def tick(self, time: float):
-        data = self.uart.read()
-        if data:
-            self.buffer.extend(data)
-            log_trace("uart", f"Received {len(data)} bytes")
+        self.uart.readinto(self.buffer)
         self._parse_packets()
 
             
 
     def _parse_packets(self):
-        pass
-    # do this soon
+        pos = 0
+        while pos < len(self.buffer):
+            if self.buffer[pos] == Packet.ctrl_header:
+                if self.last_header is None:
+                    # dump current bytes
+                    self.buffer = self.buffer[pos:]
+                    pos = 0
+                    self.last_header = 0
+                    continue
+                elif self.last_header != pos:
+                    log_trace("handler.pipe", f"processing packet last_header={self.last_header} buffer.len={len(self.buffer)} pos={pos}")
+                    packet_type, value = Packet.decode(self.buffer[self.last_header:pos])
+                    self.buffer = self.buffer[pos:]
+                    log_trace("handler.pipe", f"got packet packet_type={packet_type.name()} value={value}")
+                    self.callback(packet_type, value)
+                else:
+                    pos += 1
+            else:
+                pos += 1
+            pass
     
     
     def send_message(self, message: bytes):
