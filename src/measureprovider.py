@@ -24,3 +24,10 @@ class MockMeasureProvider(MeasureProvider):
     def measure(self) -> int:
         return randint(self.range[0], self.range[1])
     
+class realMeasureProvider(MeasureProvider):
+    """this one does REAL measuring with ADC
+
+    Args:
+        MeasureProvider (_type_): _description_
+    """
+    # do this soon tee hee
