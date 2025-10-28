@@ -7,6 +7,9 @@ from program import loop
 
 from config import MODE
 
+
+# all the pico imports
+
 duty_cycle = 1200
 timeout_ms = 1000
 max_retries = 3
@@ -43,5 +46,20 @@ if __name__ == "__main__":
             auto_restart=False,
         )
     elif MODE == "uart":
-        # TODO:
-        pass
+        #new imports
+        from handler.UARTHandler import UARTMessageHandler
+        
+        # using lab params, not tested yet
+        handler = UARTMessageHandler(uart_id=1, baudrate=9600, tx_pin=8, rx_pin=9)
+        
+        log_info("main", "Starting UART mode")
+        loop(
+            handler=handler,
+            measure_provider=provider,
+            timeout_ms=timeout_ms,
+            request_ms=poll_ms,
+            duty_cycle=duty_cycle,
+            max_retries=max_retries,
+            auto_restart=True  # Auto-restart on Pico
+        )
+    
