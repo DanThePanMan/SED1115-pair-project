@@ -1,20 +1,27 @@
 from protocol import PacketType, Packet
 from state import StartupState, NormalState
 from handler import LoopbackHandler, PipeMessageHandler
-from measureprovider import MockMeasureProvider
+from measureprovider import MockMeasureProvider, RealMeasureProvider
 from log import *
 from program import loop
 
 from config import MODE, TARGET
-
-
-# all the pico imports
 
 duty_cycle = 1200
 timeout_ms = 1000
 max_retries = 3
 poll_ms = 500
 provider = MockMeasureProvider((5000, 6000))
+pwm_out_port = 16
+pwm_duty = 1340
+pwm_freq = 1000
+
+# PWM output
+if TARGET == "micropython":
+    from machine import PWM, Pin # type: ignore
+    pwm = PWM(Pin(pwm_out_port))
+    pwm.duty_u16(pwm_duty)
+    pwm.freq(pwm_freq)
 
 def process(connection):
     handler = PipeMessageHandler(connection)

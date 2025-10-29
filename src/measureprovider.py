@@ -3,7 +3,7 @@ from log import log_debug, log_info, log_error
 
 from config import TARGET
 if TARGET == "micropython":
-    from machine import Pin, ADC, I2C
+    from machine import Pin, ADC, I2C # type: ignore
     from ads import ADS1015
 
 class MeasureProvider():
@@ -36,6 +36,8 @@ class RealMeasureProvider(MeasureProvider):
     Args:
         MeasureProvider (_type_): _description_
     """
+    # scale the value from the ADC to a uint16 value
+    factor = 65535 / 1638
     
     def __init__(self, i2c_id=1, sda_pin=14, scl_pin=15, adc_address=0x48, pwm_port=2):
         """
@@ -73,6 +75,9 @@ class RealMeasureProvider(MeasureProvider):
         
         log_info("adc", f"ADS1015 ready on port {pwm_port}")
 
+    @staticmethod
+    def clamp_u16(value: int) -> int:
+        return 0 if value < 0 else (65535 if value > 65535 else value)
             
     def measure(self) -> int:
         """Read ADC value form the PWM port
@@ -82,11 +87,9 @@ class RealMeasureProvider(MeasureProvider):
         """
         
         try:
-            value = self.adc.read(0, self.pwm_port)
+            value = RealMeasureProvider.clamp_u16(int(self.adc.read(0, self.pwm_port) * self.factor))
             log_debug("adc", f"ADC value:{value}")
             return value
         except Exception as e:
             log_error("adc", f"read failed, error: {e}")
             return 0
-            
-        
