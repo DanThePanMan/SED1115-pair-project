@@ -1,17 +1,16 @@
 # Partly AI Generated for testing purposes
 
-from multiprocessing.connection import Connection
 from handler.messagehandler import MessageHandler
 from protocol import Packet, PacketType
 from config import TYPECHECKING
 from log import log_trace, log_error
-from traceback import format_exc
 
 if TYPECHECKING:
     from typing import Callable
+    from multiprocessing.connection import Connection
 
 class PipeMessageHandler(MessageHandler):
-    def __init__(self, conn: Connection):
+    def __init__(self, conn: 'Connection'):
         self.conn = conn
         self.callback: 'Callable[[PacketType, int | None], None]' = lambda *_: None
         self.buffer = bytearray()
