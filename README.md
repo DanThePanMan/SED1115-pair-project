@@ -3,8 +3,6 @@
 Daniel Chen and Cailan Ferguson
 
 # todo:
-
--   rc filter
 -   if one disconnect and chooses a duty cycle then it needs ot communicate it back
 
 # Running the project
