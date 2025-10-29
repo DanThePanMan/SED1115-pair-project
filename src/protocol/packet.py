@@ -126,7 +126,7 @@ class Packet():
             ValueError: if value is not convertible to a uint16.
         """
         try:
-            value_bytes = bytearray(value.to_bytes(2, 'big', signed=False))
+            value_bytes = bytearray(value.to_bytes(2, 'big'))
         except OverflowError:
             raise ValueError("The provided value cannot be converted to a uint16.")
         
@@ -150,7 +150,7 @@ class Packet():
             ValueError: if value is not convertible to a uint16.
         """
         try:
-            value_bytes = bytearray(value.to_bytes(2, 'big', signed=False))
+            value_bytes = bytearray(value.to_bytes(2, 'big'))
         except OverflowError:
             raise ValueError("The provided value cannot be converted to a uint16.")
         return Packet._make_packet(PacketType.response_measured, value_bytes)
@@ -180,7 +180,7 @@ class Packet():
         if packet_type == PacketType.response_measured or packet_type == PacketType.response_config:
             assert len(packet_bytes) == 3, f"packet with data should be 4 bytes long, got {len(packet_bytes) + 1}"
 
-            val = int.from_bytes(packet_bytes[1:3], 'big', signed=False)
+            val = int.from_bytes(packet_bytes[1:3], 'big')
             return packet_type, val
         else:
             assert len(packet_bytes) == 1, f"packet with no data should be 2 bytes long, got {len(packet_bytes) + 1}"
