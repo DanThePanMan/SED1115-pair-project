@@ -25,8 +25,8 @@ if __name__ == "__main__":
     if MODE == "multiprocess":
         if TARGET != "python":
             raise NotImplementedError("multiprocess mode only works on 'python' target")
-        from multiprocessing import Pipe, Process
-        from os import devnull
+        from multiprocessing import Pipe, Process # type: ignore
+        from os import devnull # type: ignore
 
         connection_1, connection_2 = Pipe()
         process_1 = Process(target=process, args=(connection_1, ))
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         process_1.join()
         process_2.join()
     elif MODE == "loopback":
-        handler = LoopbackHandler()
+        handler = LoopbackHandler(measure_interval_ms=500)
         loop(
             handler, 
             measure_provider=provider, 
