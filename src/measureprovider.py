@@ -1,4 +1,7 @@
 from random import randint
+from log import log_debug, log_info, log_error
+from machine import Pin, ADC, I2C
+from ads import ADS1015
 
 class MeasureProvider():
     """
@@ -30,4 +33,54 @@ class realMeasureProvider(MeasureProvider):
     Args:
         MeasureProvider (_type_): _description_
     """
-    # do this soon tee hee, this one uses ADC to do some measurement stuff from RC filter
+    
+    def __init__(self, i2c_id=1, sda_pin=14, scl_pin=15, adc_address=0x48, pwm_port=2):
+        """
+            Initialize the ADS1015 ADC.
+            
+            Args:
+                i2c_id: I2C peripheral (1 for instructor's setup)
+                sda_pin: GPIO for SDA (14)
+                scl_pin: GPIO for SCL (15)
+                adc_address: I2C address (0x48)
+                pwm_port: ADC port with PWM signal (2)
+            """
+        
+        # this is how initializing looks like
+        # i2c = I2C(1, sda=Pin(I2C_SDA), scl=Pin(I2C_SCL))
+        # adc = ADS1015(i2c, ADS1015_ADDR, 1)\
+            
+        # Initialize I2C
+        self.i2c = I2C(i2c_id, sda=Pin(sda_pin), scl=Pin(scl_pin))
+        
+        # Initialize ADS1015 ADC
+        self.adc = ADS1015(self.i2c, adc_address, 1)
+        self.pwm_port = pwm_port
+        
+        
+        # make sure ADC is connected
+        addresses = self.i2c.scan()
+        log_info("adc", f"I2C devices: {[hex(addr) for addr in addresses]}") # cool little list comprehension for ya
+        
+        if adc_address not in addresses:
+            log_error("adc", f"ADS1015 not found at {hex(adc_address)}")
+        
+        log_info("adc", f"ADS1015 ready on port {pwm_port}")
+
+            
+    def measure(self) -> int:
+        """Read ADC value form the PWM port
+
+        Returns:
+            int: ADC value representing the duty cycle
+        """
+        
+        try:
+            value = self.adc.read(0, self.pwm_port)
+            log_debug("adc", f"ADC value:{value}")
+            return value
+        except Exception as e:
+            log_error("adc", f"read failed, error: {e}")
+            return 0
+            
+        

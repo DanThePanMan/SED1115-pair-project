@@ -46,10 +46,10 @@ if __name__ == "__main__":
             auto_restart=False,
         )
     elif MODE == "uart":
-        #new imports
+        # new imports
         from handler.UARTHandler import UARTMessageHandler
         
-        # using lab params, not tested yet
+        # using lab params, not tested yet, will need to be replaced by real params and real pins
         handler = UARTMessageHandler(uart_id=1, baudrate=9600, tx_pin=8, rx_pin=9)
         
         log_info("main", "Starting UART mode")
