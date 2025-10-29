@@ -1,13 +1,15 @@
 from handler.messagehandler import MessageHandler
 from protocol import Packet, PacketType
 from log import log_debug, log_trace, log_error
-from typing import Callable
 
+from config import TARGET, TYPECHECKING
 
-# specific for pico
-from machine import UART, Pin
+if TYPECHECKING:
+    from typing import Callable
 
-
+if TARGET == "micropython":
+    # specific for pico
+    from machine import UART, Pin
 
 class UARTMessageHandler(MessageHandler):
     def __init__(self, uart_id: int = 0, baudrate: int = 9600, tx_pin: int = 0, rx_pin: int = 1):
@@ -18,6 +20,11 @@ class UARTMessageHandler(MessageHandler):
         tx_pin: pin for tx
         rx_pin pin for rx
         """
+
+        # throw if target is not micropython
+        if TARGET != "micropython":
+            raise NotImplementedError("UART only works on micropython targets.")
+
         # init
         self.uart = UART(uart_id, baudrate,tx_pin, rx_pin)
         self.uart.init(baudrate=baudrate, bits=8, parity=None, stop = 1)

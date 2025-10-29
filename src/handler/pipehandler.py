@@ -2,7 +2,7 @@
 
 from handler.messagehandler import MessageHandler
 from protocol import Packet, PacketType
-from config import TYPECHECKING
+from config import TYPECHECKING, TARGET
 from log import log_trace, log_error
 
 if TYPECHECKING:
@@ -11,6 +11,8 @@ if TYPECHECKING:
 
 class PipeMessageHandler(MessageHandler):
     def __init__(self, conn: 'Connection'):
+        if TARGET != "python":
+            raise NotImplementedError("Not implemented for targets other than python")
         self.conn = conn
         self.callback: 'Callable[[PacketType, int | None], None]' = lambda *_: None
         self.buffer = bytearray()

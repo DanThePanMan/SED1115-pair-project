@@ -1,7 +1,10 @@
 from random import randint
 from log import log_debug, log_info, log_error
-from machine import Pin, ADC, I2C
-from ads import ADS1015
+
+from config import TARGET
+if TARGET == "micropython":
+    from machine import Pin, ADC, I2C
+    from ads import ADS1015
 
 class MeasureProvider():
     """
@@ -27,7 +30,7 @@ class MockMeasureProvider(MeasureProvider):
     def measure(self) -> int:
         return randint(self.range[0], self.range[1])
     
-class realMeasureProvider(MeasureProvider):
+class RealMeasureProvider(MeasureProvider):
     """this one does REAL measuring with ADC
 
     Args:
@@ -45,6 +48,8 @@ class realMeasureProvider(MeasureProvider):
                 adc_address: I2C address (0x48)
                 pwm_port: ADC port with PWM signal (2)
             """
+        if TARGET != "micropython":
+            raise NotImplementedError("Not implemented for targets other than micropython.")
         
         # this is how initializing looks like
         # i2c = I2C(1, sda=Pin(I2C_SDA), scl=Pin(I2C_SCL))
@@ -61,6 +66,7 @@ class realMeasureProvider(MeasureProvider):
         # make sure ADC is connected
         addresses = self.i2c.scan()
         log_info("adc", f"I2C devices: {[hex(addr) for addr in addresses]}") # cool little list comprehension for ya
+        # very cool ~cf
         
         if adc_address not in addresses:
             log_error("adc", f"ADS1015 not found at {hex(adc_address)}")

@@ -5,7 +5,7 @@ from measureprovider import MockMeasureProvider
 from log import *
 from program import loop
 
-from config import MODE
+from config import MODE, TARGET
 
 
 # all the pico imports
@@ -23,6 +23,8 @@ def process(connection):
 
 if __name__ == "__main__":
     if MODE == "multiprocess":
+        if TARGET != "python":
+            raise NotImplementedError("multiprocess mode only works on 'python' target")
         from multiprocessing import Pipe, Process
         from os import devnull
 
@@ -46,6 +48,8 @@ if __name__ == "__main__":
             auto_restart=False,
         )
     elif MODE == "uart":
+        if TARGET != "micropython":
+            raise NotImplementedError("multiprocess mode only works on 'python' target")
         # new imports
         from handler.UARTHandler import UARTMessageHandler
         
@@ -60,6 +64,5 @@ if __name__ == "__main__":
             request_ms=poll_ms,
             duty_cycle=duty_cycle,
             max_retries=max_retries,
-            auto_restart=True  # Auto-restart on Pico
+            auto_restart=False  # Auto-restart on Pico
         )
-    

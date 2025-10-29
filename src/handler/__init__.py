@@ -1,3 +1,4 @@
 from handler.loopbackhandler import LoopbackHandler
 from handler.messagehandler import MessageHandler
 from handler.pipehandler import PipeMessageHandler
+from handler.UARTHandler import UARTMessageHandler
