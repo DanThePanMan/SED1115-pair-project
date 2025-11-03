@@ -29,13 +29,15 @@ class UARTMessageHandler(MessageHandler):
         self.uart = UART(uart_id, baudrate=baudrate, tx=Pin(tx_pin), rx=Pin(rx_pin))
         self.uart.init(bits=8, parity=None, stop = 1)
         self.last_header = None
+
+        while self.uart.any():
+            self.uart.read(1)
         
         log_debug("uart", f"UART{uart_id} initialized: TX=GP{tx_pin}, RX=GP{rx_pin}, baud={baudrate}")
         self.buffer = bytearray()
         
         
     def tick(self, time: float):
-        log_trace("uart", f"uart bytes waiting {self.uart.any()}")
         while self.uart.any():
             self.buffer.extend(self.uart.read(1))
         self._parse_packets()

@@ -78,12 +78,12 @@ class MonoState(State):
             
             log_trace(self.log_src, f"timeout; request={self.timeout_last_req} retries={self.timeout_retries}")
 
-            # raise if we're exceeding max retries
-            if self.timeout_retries > self.max_retries:
-                raise TimeoutError(f"Timed out on {self.timeout_last_req} request")
+            # # raise if we're exceeding max retries
+            # if self.timeout_retries > self.max_retries:
+            #     raise TimeoutError(f"Timed out on {self.timeout_last_req} request")
             
             # otherwise retry
-            elif self.timeout_last_req == "config":
+            if self.timeout_last_req == "config":
                 self.send_config_req()
             else:
                 self.send_measure_req()
@@ -121,7 +121,7 @@ class MonoState(State):
         self.retries = 0
         self.timeout_timer = 0
         self.timeout_last_req = "none"
-        log_info(self.log_src, f"expected={self.expected_duty_cycle} value={value} error={abs(self.expected_duty_cycle - value)}")
+        log_info(self.log_src, f"expected={self.duty_cycle} value={value} error={abs(self.duty_cycle - value)}")
 
     def config_resp_received(self, value: int):
         self.expected_duty_cycle = value
@@ -157,5 +157,6 @@ class MonoState(State):
         new = 0 if new < 0 else (65535 if new > 65535 else new) 
         if new == self.duty_cycle:
             return
-        log_debug(self.log_src, f"updating duty_cycle old={self.duty_cycle} new={self.duty_cycle}")
+        log_debug(self.log_src, f"updating duty_cycle old={self.duty_cycle} new={new}")
+        self.duty_cycle = new
         self.send_config_req()
