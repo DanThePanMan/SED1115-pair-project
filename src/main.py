@@ -5,9 +5,11 @@ from measureprovider import MockMeasureProvider, RealMeasureProvider, MeasurePro
 from log import *
 from time import time_ns
 from exception import TimeoutError
+from random import randint
 
 from config import MODE, TARGET
 
+# configuration variables
 duty_cycle = 1200
 timeout_ms = 1000
 max_retries = 3
@@ -16,14 +18,20 @@ provider = MockMeasureProvider((5000, 6000))
 pwm_out_port = 16
 pwm_duty = 1340
 pwm_freq = 1000
+rnd_pin = 12
+rnd_range = (1500, 60000)
 duty_in_pin = 2
 
-# PWM output
+# set up pins for micropython
 if TARGET == "micropython":
+    # PWM output
     from machine import PWM, Pin # type: ignore
     pwm = PWM(Pin(pwm_out_port))
     pwm.duty_u16(pwm_duty)
     pwm.freq(pwm_freq)
+
+    # duty cycle randomizer
+    random_button = Pin(12)
 
 def process(connection):
     """
@@ -39,6 +47,9 @@ def loop(handler: MessageHandler, measure_provider: MeasureProvider,
     """
     Contains the main loop for the program. Handles ticking of the message handler and the state.
     """
+
+    rnd_debounce_timer = 0. # used to debounce the rnd_pin button
+
     while True:
         # initialize startup state
         message_handler = handler
@@ -53,8 +64,16 @@ def loop(handler: MessageHandler, measure_provider: MeasureProvider,
             elapsed = (end - start) / 1_000.0
             start = end
 
+            # check if we should update duty cycle
+            if TARGET == "micropython" and random_button.value() and rnd_debounce_timer > 100.0:
+                rnd_debounce_timer = 0
+                duty_cycle = randint(rnd_range[0], rnd_range[1])
+                log_info("main", f"updating duty cycle duty_cycle={duty_cycle}")
+                current_state.update_duty_cycle(duty_cycle)
+
             # tick and handle the exceptions
             try:
+                rnd_debounce_timer += elapsed
                 message_handler.tick(elapsed)
                 current_state.tick(elapsed)
             except TimeoutError:
