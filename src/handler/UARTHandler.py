@@ -12,7 +12,7 @@ if TARGET == "micropython":
     from machine import UART, Pin
 
 class UARTMessageHandler(MessageHandler):
-    def __init__(self, uart_id: int = 0, baudrate: int = 9600, tx_pin: int = 0, rx_pin: int = 1):
+    def __init__(self, uart_id: int = 1, baudrate: int = 9600, tx_pin: int = 8, rx_pin: int = 9):
         """args:
         
         uart_id: peripheral number, 0 or 1
@@ -26,19 +26,19 @@ class UARTMessageHandler(MessageHandler):
             raise NotImplementedError("UART only works on micropython targets.")
 
         # init
-        self.uart = UART(uart_id, baudrate,tx_pin, rx_pin)
-        self.uart.init(baudrate=baudrate, bits=8, parity=None, stop = 1)
+        self.uart = UART(uart_id, baudrate=baudrate, tx=Pin(tx_pin), rx=Pin(rx_pin))
+        self.uart.init(bits=8, parity=None, stop = 1)
+        self.last_header = None
         
         log_debug("uart", f"UART{uart_id} initialized: TX=GP{tx_pin}, RX=GP{rx_pin}, baud={baudrate}")
         self.buffer = bytearray()
-   
         
         
     def tick(self, time: float):
-        self.uart.readinto(self.buffer)
+        log_trace("uart", f"uart bytes waiting {self.uart.any()}")
+        while self.uart.any():
+            self.buffer.extend(self.uart.read(1))
         self._parse_packets()
-
-            
 
     def _parse_packets(self):
         pos = 0
@@ -80,4 +80,3 @@ class UARTMessageHandler(MessageHandler):
         """
         self.callback = callback
         log_debug("uart", "Callback registered")
-    

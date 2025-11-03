@@ -6,6 +6,9 @@ TARGET = "python"
 # "multiprocess" or "loopback" or "uart"
 MODE = "loopback"
 
+# "mock" or "pwm"
+PROVIDER = "mock"
+
 # controls logging level
 # trace = 0
 # debug = 1

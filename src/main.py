@@ -14,7 +14,8 @@ duty_cycle = 1200
 timeout_ms = 1000
 max_retries = 3
 poll_ms = 500
-provider = MockMeasureProvider((5000, 6000))
+# provider = MockMeasureProvider((5000, 6000))
+provider = RealMeasureProvider()
 pwm_out_port = 16
 pwm_duty = 1340
 pwm_freq = 1000
@@ -70,6 +71,8 @@ def loop(handler: MessageHandler, measure_provider: MeasureProvider,
                 duty_cycle = randint(rnd_range[0], rnd_range[1])
                 log_info("main", f"updating duty cycle duty_cycle={duty_cycle}")
                 current_state.update_duty_cycle(duty_cycle)
+                if TARGET == "micropython":
+                    pwm.duty_u16(duty_cycle)
 
             # tick and handle the exceptions
             try:
