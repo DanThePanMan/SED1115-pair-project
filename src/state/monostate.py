@@ -93,6 +93,7 @@ class MonoState(State):
         self.set_status("yellow")
         self.timeout_last_req = "config"
         self.timeout_timer = 0
+        self.retries = 0
         self.handler.send_message(Packet.create_request_config(self.duty_cycle))
 
     def send_measure_req(self):
@@ -100,6 +101,7 @@ class MonoState(State):
         self.set_status("yellow")
         self.timeout_last_req = "measure"
         self.timeout_timer = 0
+        self.retries = 0
         self.handler.send_message(Packet.create_request_measured())
 
     def send_config_resp(self):
