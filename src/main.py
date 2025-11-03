@@ -4,7 +4,7 @@ from state import MonoState
 from measureprovider import MockMeasureProvider, RealMeasureProvider, MeasureProvider
 from log import *
 from time import time_ns
-
+from exception import TimeoutError
 
 from config import MODE, TARGET
 
