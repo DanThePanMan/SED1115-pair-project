@@ -107,7 +107,7 @@ class MonoState(State):
         self.set_status("yellow")
         self.timeout_last_req = "config"
         self.timeout_timer = 0
-        self.handler.send_message(Packet.create_request_config(self.duty_cycle))
+        self.handler.send_message(Packet.create_response_config(self.duty_cycle))
 
     def measure_resp_received(self, value: int):
         """
