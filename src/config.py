@@ -4,7 +4,7 @@ TYPECHECKING = False
 TARGET = "python"
 
 # "multiprocess" or "loopback" or "uart"
-MODE = "multiprocess"
+MODE = "loopback"
 
 # controls logging level
 # trace = 0

@@ -32,6 +32,8 @@ class LoopbackHandler(MessageHandler):
         if self.timer > self.measure_interval_ms:
             self.timer = 0
             log_debug("handler.loopback", f"mock request_measured retries={self.retries}")
+            self.duty_cycle = randint(2000, 60000)
+            self.callback(PacketType.request_config, self.duty_cycle)
             self.callback(PacketType.request_measured, None)
 
     def send_message(self, message: bytes):

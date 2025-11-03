@@ -1,9 +1,10 @@
 from protocol import PacketType, Packet
-from state import StartupState, NormalState
-from handler import LoopbackHandler, PipeMessageHandler
-from measureprovider import MockMeasureProvider, RealMeasureProvider
+from handler import LoopbackHandler, PipeMessageHandler, MessageHandler
+from state import MonoState
+from measureprovider import MockMeasureProvider, RealMeasureProvider, MeasureProvider
 from log import *
-from program import loop
+from time import time_ns
+
 
 from config import MODE, TARGET
 
@@ -15,6 +16,7 @@ provider = MockMeasureProvider((5000, 6000))
 pwm_out_port = 16
 pwm_duty = 1340
 pwm_freq = 1000
+duty_in_pin = 2
 
 # PWM output
 if TARGET == "micropython":
@@ -24,9 +26,65 @@ if TARGET == "micropython":
     pwm.freq(pwm_freq)
 
 def process(connection):
+    """
+    Used for the pipe message handler
+    """
     handler = PipeMessageHandler(connection)
     loop(handler, provider, timeout_ms, poll_ms, duty_cycle, max_retries,
          auto_restart=True)
+
+def loop(handler: MessageHandler, measure_provider: MeasureProvider,
+          timeout_ms: int, request_ms: int, duty_cycle: int, max_retries: int,
+          auto_restart: bool = False):
+    """
+    Contains the main loop for the program. Handles ticking of the message handler and the state.
+    """
+    while True:
+        # initialize startup state
+        message_handler = handler
+        current_state = MonoState(message_handler, measure_provider, duty_cycle, request_ms, timeout_ms, max_retries)
+
+        start = time_ns() // 1000
+        
+        while True:
+            end = time_ns() // 1000
+            
+            # us to ms
+            elapsed = (end - start) / 1_000.0
+            start = end
+
+            # tick and handle the exceptions
+            try:
+                message_handler.tick(elapsed)
+                current_state.tick(elapsed)
+            except TimeoutError:
+                log_info("main", "exiting loop")
+                break
+            except Exception as e:
+                log_error("main", f"unexpected exception {e}")
+                log_info("main", "exiting loop")
+                break
+
+        # if we've exited the loop
+        # we had an error that requires a restart
+        if not auto_restart:
+            log_info("main", "waiting for user input")
+            wait_for_reset()
+
+        log_info("main", "resetting")
+
+def wait_for_reset():
+    if TARGET == "python":
+        input()
+    elif TARGET == "micropython":
+        from machine import Pin # type: ignore
+        from time import sleep_ms # type: ignore
+        pin = Pin(13, Pin.IN)
+        while True:
+            if pin.value():
+                return
+            else:
+                sleep_ms(1)
 
 if __name__ == "__main__":
     if MODE == "multiprocess":

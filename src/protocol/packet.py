@@ -133,8 +133,19 @@ class Packet():
         return Packet._make_packet(PacketType.response_config, value_bytes)
     
     @staticmethod
-    def create_request_config():
-        return Packet._make_packet(PacketType.request_config, None)
+    def create_request_config(value: int):
+        """
+        Arguments:
+            value (int): The value as a uint16.
+
+        Raises:
+            ValueError: if value is not convertible to a uint16.
+        """
+        try:
+            value_bytes = bytearray(value.to_bytes(2, 'big'))
+        except OverflowError:
+            raise ValueError("The provided value cannot be converted to a uint16.")
+        return Packet._make_packet(PacketType.request_config, value_bytes)
     
     @staticmethod
     def create_request_measured():
@@ -177,7 +188,8 @@ class Packet():
             raise
 
         # extract a value from the packet if it has one
-        if packet_type == PacketType.response_measured or packet_type == PacketType.response_config:
+        if packet_type == PacketType.response_measured or packet_type == PacketType.response_config \
+                or packet_type == PacketType.request_config:
             assert len(packet_bytes) == 3, f"packet with data should be 4 bytes long, got {len(packet_bytes) + 1}"
 
             val = int.from_bytes(packet_bytes[1:3], 'big')
