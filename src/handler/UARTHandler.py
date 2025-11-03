@@ -51,17 +51,16 @@ class UARTMessageHandler(MessageHandler):
                     self.last_header = 0
                     continue
                 elif self.last_header != pos:
-                    log_trace("handler.pipe", f"processing packet last_header={self.last_header} buffer.len={len(self.buffer)} pos={pos}")
+                    log_trace("uart", f"processing packet last_header={self.last_header} buffer.len={len(self.buffer)} pos={pos}")
                     packet_type, value = Packet.decode(self.buffer[self.last_header:pos])
                     self.buffer = self.buffer[pos:]
-                    log_trace("handler.pipe", f"got packet packet_type={packet_type.name()} value={value}")
+                    log_trace("uart", f"got packet packet_type={packet_type.name()} value={value}")
                     self.callback(packet_type, value)
                 else:
                     pos += 1
             else:
                 pos += 1
             pass
-    
     
     def send_message(self, message: bytes):
         try:

@@ -102,6 +102,13 @@ class MonoState(State):
         self.timeout_timer = 0
         self.handler.send_message(Packet.create_request_measured())
 
+    def send_config_resp(self):
+        log_debug(self.log_src, "sending response_config")
+        self.set_status("yellow")
+        self.timeout_last_req = "config"
+        self.timeout_timer = 0
+        self.handler.send_message(Packet.create_request_config(self.duty_cycle))
+
     def measure_resp_received(self, value: int):
         """
         Handle a RESPONSE_MEASURED response
@@ -132,7 +139,7 @@ class MonoState(State):
         elif packet_type == PacketType.request_config:
             assert value is not None
             self.expected_duty_cycle = value
-            self.send_config_req()
+            self.send_config_resp()
         elif packet_type == PacketType.response_measured:
             assert value is not None
             self.measure_resp_received(value)
