@@ -1,155 +1,175 @@
-from protocol import PacketType, Packet
-from handler import LoopbackHandler, PipeMessageHandler, MessageHandler
-from state import MonoState
-from measureprovider import MockMeasureProvider, RealMeasureProvider, MeasureProvider
-from log import *
-from time import time_ns
-from exception import TimeoutError
-from random import randint
+# Version 3
+# This was prepared very quickly after we did testing on version 2
+# and observed way too many bugs in the previous version
+# We decided to burn it all down and quickly hacked up the minimum 
+# viable product for this project in person
 
-from config import MODE, TARGET
+from time import time_ns, sleep_ms
+from machine import Pin, UART, I2C, ADC, PWM
+from ads import ADS1015
 
-# configuration variables
-duty_cycle = 1200
-timeout_ms = 1000
-max_retries = 3
-poll_ms = 500
-# provider = MockMeasureProvider((5000, 6000))
-provider = RealMeasureProvider()
-pwm_out_port = 16
-pwm_duty = 1340
-pwm_freq = 1000
-rnd_pin = 12
-rnd_range = (1500, 60000)
-duty_in_pin = 2
+from packet import *
 
-# set up pins for micropython
-if TARGET == "micropython":
-    # PWM output
-    from machine import PWM, Pin # type: ignore
-    pwm = PWM(Pin(pwm_out_port))
-    pwm.duty_u16(pwm_duty)
-    pwm.freq(pwm_freq)
+# program config
+debug = False
+enable_potentiometer = True
 
-    # duty cycle randomizer
-    random_button = Pin(12)
+# time in ms to send messages
+send_interval = 500
 
-def process(connection):
+# time in ms to update pwm value
+pwm_poll_interval = 50
+
+# time to wait before displaying an error message in ms
+timeout_error = 3000
+
+configured_duty_cycle = 1200
+uart_obj = UART(1, baudrate=9600, tx=Pin(8), rx=Pin(9))
+
+# I2C config
+i2c = I2C(1, sda=Pin(14), scl=Pin(15))
+adc = ADS1015(i2c, 0x48, 1)
+adc_pwm_port = 2
+
+# PWM config
+pwm = PWM(Pin(17))
+pwm.freq(1000)
+
+# potentiometer config
+potent = ADC(Pin(27))
+
+# error light
+error_light = Pin(16, Pin.OUT)
+
+uart_obj.init(stop=1, parity=None, bits=8)
+
+# internal state
+receive_buffer = bytearray()
+timer = 0
+connection_lost_timer = 0
+connection_lost_ack = True
+pwm_poll_timer = 0
+
+
+# utility for logging with debug
+def log(message, debug_only = False):
+    if debug_only:
+        if debug: print(f"[debug] {message}")
+    else: print(f"[info ] {message}")
+
+def uart_write(*values: str):
     """
-    Used for the pipe message handler
+    Write a UTF-8 message to UART.
     """
-    handler = PipeMessageHandler(connection)
-    loop(handler, provider, timeout_ms, poll_ms, duty_cycle, max_retries,
-         auto_restart=True)
+    uart_obj.write(format_packet(values))
 
-def loop(handler: MessageHandler, measure_provider: MeasureProvider,
-          timeout_ms: int, request_ms: int, duty_cycle: int, max_retries: int,
-          auto_restart: bool = False):
+def uart_receive() -> 'list[str] | None':
     """
-    Contains the main loop for the program. Handles ticking of the message handler and the state.
+    Receive a packet from UART.
     """
+    global receive_buffer
 
-    rnd_debounce_timer = 0. # used to debounce the rnd_pin button
+    while uart_obj.any():
+        receive_buffer.extend(uart_obj.read(1))
 
-    while True:
-        # initialize startup state
-        message_handler = handler
-        current_state = MonoState(message_handler, measure_provider, duty_cycle, request_ms, timeout_ms, max_retries)
+    # check if we have a complete packet waiting to be processed (marked by ;)
+    semi_index = receive_buffer.find(b';')
 
-        start = time_ns() // 1000
+    if semi_index != -1:
+        # get the first packet from the buffer
+        packet = receive_buffer[:semi_index + 1]
         
-        while True:
-            end = time_ns() // 1000
+        # split into components
+        receive_buffer = receive_buffer[semi_index + 1:]
+        packet_list = split_packet(packet)
+        
+        log(f"received message: {packet}", debug_only=True)
+        
+        return packet_list
+    
+    return None
+
+def read_rc_filter() -> int:
+    # no idea why the number is 1639, but that's the max I've observed
+    # so scale the read value by the appropriate factor
+    adjusted = int(adc.read(0, adc_pwm_port) * (65535/1639))
+    if adjusted < 0: return 0
+    elif adjusted > 65535: return 65535
+    else: return adjusted
+
+start = time_ns()
+while True:
+    # get the elapsed time
+    end = time_ns()
+    elapsed = (end - start) / 1_000_000
+
+    # update the timers
+    timer += elapsed
+    connection_lost_timer += elapsed
+    pwm_poll_timer += elapsed
+    
+    start = end
+
+    # display a message if we think we lost connection
+    if connection_lost_timer > timeout_error and not connection_lost_ack:
+        log("connection lost!")
+
+        connection_lost_ack = True
+        error_light.high()
+    
+    # update current duty cycle based on potentiometer
+    if enable_potentiometer and pwm_poll_timer > pwm_poll_interval:
+        log(f"potent={potent.read_u16()}", debug_only=True)
+
+        configured_duty_cycle = potent.read_u16()
+        pwm.duty_u16(configured_duty_cycle)
+        pwm_poll_timer = 0
+    
+    # send a measure message every send_interval ms
+    if timer > send_interval:
+        log("timer elapsed, sending...", debug_only=True)
+        uart_write('m', str(configured_duty_cycle))
+        
+        timer = 0
+
+    try:
+        # try and read a packet
+        read = uart_receive()
+
+        if read is not None:
+            # if we have a measure packet
+            if len(read) > 0 and read[0] == "m":
+                log(f"got packet m, duty:{read[1]}", debug_only=True)
+                try:
+                    other_duty = int(read[1])
+                    current_rc = read_rc_filter()
+                    log(f"expected={other_duty}; actual={current_rc}; delta={abs(other_duty - current_rc)}", debug_only=True)
+                    uart_write('e', str(current_rc), str(other_duty))
+                except:
+                    log("Something went wrong while processing a message packet!")
             
-            # us to ms
-            elapsed = (end - start) / 1_000.0
-            start = end
+            # if we have an error packet (not a bad error1!!)
+            elif len(read) > 0 and read[0] == "e":
 
-            # check if we should update duty cycle
-            if TARGET == "micropython" and random_button.value() and rnd_debounce_timer > 100.0:
-                rnd_debounce_timer = 0
-                duty_cycle = randint(rnd_range[0], rnd_range[1])
-                log_info("main", f"updating duty cycle duty_cycle={duty_cycle}")
-                current_state.update_duty_cycle(duty_cycle)
-                if TARGET == "micropython":
-                    pwm.duty_u16(duty_cycle)
+                # reset error status
+                error_light.low()
+                connection_lost_timer = 0
+                connection_lost_ack = False
+                try:
+                    own_duty = int(read[2])
+                    actual = int(read[1])
 
-            # tick and handle the exceptions
-            try:
-                rnd_debounce_timer += elapsed
-                message_handler.tick(elapsed)
-                current_state.tick(elapsed)
-            except TimeoutError:
-                log_info("main", "exiting loop")
-                break
-            except Exception as e:
-                log_error("main", f"unexpected exception {e}")
-                log_info("main", "exiting loop")
-                break
+                    # print out a message with the deviation
+                    log(f"got packet expected:{read[1]}", debug_only=True)
+                    print(f"Expected: {own_duty}; Actual: {read[1]}; Deviation: {abs(own_duty - actual)}")
+                except:
+                    log("Something went wrong while processing an error packet!")
 
-        # if we've exited the loop
-        # we had an error that requires a restart
-        if not auto_restart:
-            log_info("main", "waiting for user input")
-            wait_for_reset()
-
-        log_info("main", "resetting")
-
-def wait_for_reset():
-    if TARGET == "python":
-        input()
-    elif TARGET == "micropython":
-        from machine import Pin # type: ignore
-        from time import sleep_ms # type: ignore
-        pin = Pin(13, Pin.IN)
-        while True:
-            if pin.value():
-                return
+            # some unknown packet
             else:
-                sleep_ms(1)
-
-if __name__ == "__main__":
-    if MODE == "multiprocess":
-        if TARGET != "python":
-            raise NotImplementedError("multiprocess mode only works on 'python' target")
-        from multiprocessing import Pipe, Process # type: ignore
-        from os import devnull # type: ignore
-
-        connection_1, connection_2 = Pipe()
-        process_1 = Process(target=process, args=(connection_1, ))
-        process_2 = Process(target=process, args=(connection_2, ))
-
-        process_1.start()
-        process_2.start()
-        process_1.join()
-        process_2.join()
-    elif MODE == "loopback":
-        handler = LoopbackHandler(measure_interval_ms=500)
-        loop(
-            handler, 
-            measure_provider=provider, 
-            timeout_ms=timeout_ms, 
-            request_ms=poll_ms, 
-            duty_cycle=duty_cycle, 
-            max_retries=max_retries,
-            auto_restart=False,
-        )
-    elif MODE == "uart":
-        if TARGET != "micropython":
-            raise NotImplementedError("multiprocess mode only works on 'python' target")
-        # new imports
-        from handler.UARTHandler import UARTMessageHandler
-        
-        # using lab params, not tested yet, will need to be replaced by real params and real pins
-        handler = UARTMessageHandler(uart_id=1, baudrate=9600, tx_pin=8, rx_pin=9)
-        
-        log_info("main", "Starting UART mode")
-        loop(
-            handler=handler,
-            measure_provider=provider,
-            timeout_ms=timeout_ms,
-            request_ms=poll_ms,
-            duty_cycle=duty_cycle,
-            max_retries=max_retries,
-            auto_restart=False  # Auto-restart on Pico
-        )
+                log("unrecognized packet; ignoring")
+                
+    except Exception:
+        log("malformed packet; ignoring")
+    
+    sleep_ms(10)
